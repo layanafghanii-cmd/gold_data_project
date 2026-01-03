@@ -13,7 +13,7 @@ st.title("📈 Gold Price Forecast Using LSTM")
 # 1️⃣ Load dataset (local or GitHub)
 @st.cache_data
 def load_data():
-    df = pd.read_csv(dropped_corr.csv)
+    df = pd.read_csv("dropped_corr.csv")
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values('Date')
     df.set_index('Date', inplace=True)
@@ -92,6 +92,7 @@ if input_date > df.index[-1]:
     st.subheader(f"Predicted Gold Price on {input_date}: ${predicted_price:.2f}")
 else:
     st.warning("Please select a date after the last date in the dataset.")
+
 
 
 

@@ -86,12 +86,13 @@ def forecast_price(target_date):
 
 # 6️⃣ User input
 input_date = st.date_input("Enter a future date to predict gold price:")
-
+input_date = pd.Timestamp(input_date) 
 if input_date > df.index[-1]:
     predicted_price = forecast_price(input_date)
     st.subheader(f"Predicted Gold Price on {input_date}: ${predicted_price:.2f}")
 else:
     st.warning("Please select a date after the last date in the dataset.")
+
 
 
 

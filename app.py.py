@@ -1,4 +1,3 @@
-# streamlit_lstm_predict.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -80,7 +79,11 @@ if uploaded_file is not None:
     # 4️⃣ User input date for prediction
     input_date = st.date_input("Enter the date to predict gold price:")
     
-    # Check if date is within dataset
+    # ================================
+    # هنا نقوم بتعديل الكود للتنبؤ لتواريخ جديدة
+    # ================================
+    
+    # إذا التاريخ موجود بالداتا
     if input_date in df.index:
         idx = df.index.get_loc(input_date)
         if idx >= n_days:
@@ -90,8 +93,16 @@ if uploaded_file is not None:
             st.subheader(f"Predicted Gold Price on {input_date}: ${predicted_price:.2f}")
         else:
             st.warning(f"Not enough past {n_days} days to predict this date.")
+    
     else:
-        st.warning("Date not found in the dataset.")
+        # التنبؤ لتاريخ غير موجود باستخدام آخر n_days
+        st.info(f"Date {input_date} not found in the dataset. Using last available data for prediction.")
+        last_row = scaled_data.iloc[-n_days:].values  # آخر n_days من الداتا
+        input_sequence = last_row.reshape(1, n_days, len(features))
+        predicted_price_scaled = model.predict(input_sequence)
+        predicted_price = gold_scaler.inverse_transform(predicted_price_scaled)[0][0]
+        st.subheader(f"Predicted Gold Price on {input_date}: ${predicted_price:.2f}")
+
 
 
 

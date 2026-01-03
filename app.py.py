@@ -11,7 +11,7 @@ df = pd.read_csv("gold_data_cleaned_pca.csv")
 df['Date'] = pd.to_datetime(df['Date'])
 
 from tensorflow.keras.models import load_model
-model= load_model("gold_lstm_model.h5" , compile=false)
+model= load_model("gold_lstm_model.h5" , compile=False)
 scaler = joblib.load("scaler.pkl")
 
 st.title("Gold Price Prediction ⏱️")
@@ -50,5 +50,6 @@ if st.button("Predict"):
         st.success(f"💰 السعر المتوقع: {predicted_price:.4f}")
 
         st.info(f"📉 MAE Error: {mae:.4f}")
+
 
 

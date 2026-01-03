@@ -7,7 +7,7 @@ from sklearn.metrics import mean_absolute_error
 # =============================
 # تحميل الملفات
 # =============================
-df = pd.read_csv(r"C:\Users\User1\OneDrive\Desktop\gold_project\gold_data_cleaned_pca.csv")
+df = pd.read_csv("gold_data_cleaned_pca.csv")
 df['Date'] = pd.to_datetime(df['Date'])
 
 model = load_model("gold_lstm_model.h5")
@@ -47,4 +47,5 @@ if st.button("Predict"):
         mae = mean_absolute_error(y_all, y_pred_all)
 
         st.success(f"💰 السعر المتوقع: {predicted_price:.4f}")
+
         st.info(f"📉 MAE Error: {mae:.4f}")

@@ -1,67 +1,102 @@
-# app.py
-
+# streamlit_lstm_gold.py
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
-from tensorflow.keras.models import load_model
-from sklearn.metrics import mean_absolute_error
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+import matplotlib.pyplot as plt
 
-# =============================
-# تحميل الملفات
-# =============================
-df = pd.read_csv("gold_data_cleaned_pca.csv")  # Dataset
-df['Date'] = pd.to_datetime(df['Date'])
+st.set_page_config(page_title="Gold Price Prediction LSTM", layout="wide")
+st.title("📈 Gold Price Prediction Using LSTM")
 
-model = load_model("gold_lstm_model.h5", compile=False)  # H5 بدون مشاكل
-scaler = joblib.load("scaler.pkl")  # Scaler
-
-# =============================
-# Streamlit Interface
-# =============================
-st.title("Gold Price Prediction ⏱️")
-st.write("أدخل التاريخ لتحصل على السعر المتوقع مع Error")
-
-user_date = st.date_input("اختر التاريخ")
-
-if st.button("Predict"):
-
-    # =============================
-    # تجهيز Features للـ prediction
-    # =============================
-    if user_date in list(df['Date'].dt.date):
-        # التاريخ موجود بالداتا
-        row = df[df['Date'].dt.date == user_date]
-        X = row.drop(['Date', 'Target'], axis=1).values
-    else:
-        # التاريخ غير موجود → خذ آخر صف ك approximation
-        last_row = df.drop(['Date', 'Target'], axis=1).iloc[-1].values
-        X = np.array([last_row])  # شكل 2D
-
-    # Scaling + reshape
-    X_scaled = scaler.transform(X)
-    X_scaled = X_scaled.reshape(1, 1, X_scaled.shape[1])
-
-    # Prediction
-    prediction = model.predict(X_scaled)
-    predicted_price = prediction[0][0]
-
-    # =============================
-    # حساب Error على كل البيانات (اختياري)
-    # =============================
-    X_all = df.drop(['Date','Target'], axis=1).values
-    y_all = df['Target'].values
-    X_all_scaled = scaler.transform(X_all)
-    X_all_scaled = X_all_scaled.reshape(X_all_scaled.shape[0],1,X_all_scaled.shape[1])
-    y_pred_all = model.predict(X_all_scaled)
-    mae = mean_absolute_error(y_all, y_pred_all)
-
-    # =============================
-    # عرض النتائج
-    # =============================
-    st.success(f"💰 السعر المتوقع: {predicted_price:.4f}")
-    st.info(f"📉 MAE Error: {mae:.4f}")
-
+# 1️⃣ Upload CSV
+uploaded_file = st.file_uploader("Upload your CSV file with columns: Date, Price_Gold, Volume_Gold, Change%_Gold, Price_Oil, Price_Dollar, Price_Stocks, Volume_Stocks", type=["csv"])
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values('Date')
+    df.set_index('Date', inplace=True)
+    
+    st.subheader("Data Preview")
+    st.dataframe(df.head())
+    
+    # 2️⃣ Feature scaling
+    features = ['Price_Gold', 'Volume_Gold', 'Change%_Gold', 'Price_Oil',
+                'Price_Dollar', 'Price_Stocks', 'Volume_Stocks']
+    
+    scaler = MinMaxScaler()
+    scaled_data = scaler.fit_transform(df[features])
+    scaled_data = pd.DataFrame(scaled_data, columns=features, index=df.index)
+    
+    n_days = st.slider("Select number of past days for LSTM input:", 1, 60, 30)
+    
+    # Prepare sequences
+    X, y = [], []
+    for i in range(n_days, len(scaled_data)):
+        X.append(scaled_data.iloc[i-n_days:i].values)
+        y.append(scaled_data.iloc[i]['Price_Gold'])
+    X, y = np.array(X), np.array(y)
+    
+    st.write(f"Input shape (X): {X.shape}")
+    st.write(f"Output shape (y): {y.shape}")
+    
+    # Train/test split
+    train_size = int(0.8 * len(X))
+    X_train, X_test = X[:train_size], X[train_size:]
+    y_train, y_test = y[:train_size], y[train_size:]
+    
+    # 3️⃣ Build LSTM model
+    model = Sequential()
+    model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+    model.add(Dropout(0.2))
+    model.add(LSTM(units=50))
+    model.add(Dropout(0.2))
+    model.add(Dense(1))
+    model.compile(optimizer='adam', loss='mean_squared_error')
+    
+    st.subheader("Model Summary")
+    st.text(model.summary())
+    
+    # 4️⃣ Train model
+    epochs = st.number_input("Number of epochs:", min_value=1, max_value=200, value=50)
+    batch_size = st.number_input("Batch size:", min_value=1, max_value=128, value=32)
+    
+    if st.button("Train LSTM Model"):
+        history = model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=0.2, verbose=1)
+        st.success("✅ Model trained successfully!")
+        
+        # 5️⃣ Predictions
+        predicted = model.predict(X_test)
+        
+        # Inverse scaling for Price_Gold
+        gold_scaler = MinMaxScaler()
+        gold_scaler.min_, gold_scaler.scale_ = scaler.min_[0], scaler.scale_[0]
+        predicted_original = gold_scaler.inverse_transform(predicted)
+        y_test_original = gold_scaler.inverse_transform(y_test.reshape(-1,1))
+        
+        # 6️⃣ Performance metrics
+        mse = mean_squared_error(y_test_original, predicted_original)
+        rmse = np.sqrt(mse)
+        mae = mean_absolute_error(y_test_original, predicted_original)
+        r2 = r2_score(y_test_original, predicted_original)
+        
+        st.subheader("Performance Metrics for Gold Price Prediction")
+        st.write(f"Mean Squared Error (MSE): {mse:.2f}")
+        st.write(f"Root Mean Squared Error (RMSE): {rmse:.2f}")
+        st.write(f"Mean Absolute Error (MAE): {mae:.2f}")
+        st.write(f"R² Score: {r2:.4f}")
+        
+        # 7️⃣ Plot actual vs predicted
+        st.subheader("Gold Price Prediction vs Actual")
+        fig, ax = plt.subplots(figsize=(12,5))
+        ax.plot(df.index[train_size+n_days:], y_test_original, label="Actual Price", color='blue')
+        ax.plot(df.index[train_size+n_days:], predicted_original, label="Predicted Price", color='red')
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Gold Price")
+        ax.legend()
+        st.pyplot(fig)
 
 
 

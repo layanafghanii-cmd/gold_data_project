@@ -10,7 +10,8 @@ from sklearn.metrics import mean_absolute_error
 df = pd.read_csv("gold_data_cleaned_pca.csv")
 df['Date'] = pd.to_datetime(df['Date'])
 
-model = load_model("gold_lstm_model.h5")
+from tensorflow.keras.mofels import load_modwl
+model= load_model("gold_lstm_model.h5" , compile=false)
 scaler = joblib.load("scaler.pkl")
 
 st.title("Gold Price Prediction ⏱️")
@@ -49,3 +50,4 @@ if st.button("Predict"):
         st.success(f"💰 السعر المتوقع: {predicted_price:.4f}")
 
         st.info(f"📉 MAE Error: {mae:.4f}")
+

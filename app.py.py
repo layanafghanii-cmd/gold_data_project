@@ -23,33 +23,38 @@ st.write("أدخل التاريخ فقط لتحصل على السعر المتو
 user_date = st.date_input("اختر التاريخ")
 
 if st.button("Predict"):
-    if user_date not in list(df['Date'].dt.date):
-        st.error("❌ التاريخ غير موجود في الداتا")
-    else:
-        row = df[df['Date'].dt.date == user_date]
+    import numpy as np
 
-        X = row.drop(['Date', 'Target'], axis=1).values
-        y_true = row['Target'].values[0]
+# تجهيز Features للـ prediction
+# إذا التاريخ موجود بالداتا، خذ الصف الموجود
+if user_date in list(df['Date'].dt.date):
+    row = df[df['Date'].dt.date == user_date]
+    X = row.drop(['Date', 'Target'], axis=1).values
+else:
+    # التاريخ غير موجود → خذ آخر صف ك approximation
+    last_row = df.drop(['Date', 'Target'], axis=1).iloc[-1].values
+    X = np.array([last_row])  # شكل 2D
 
-        X_scaled = scaler.transform(X)
-        X_scaled = X_scaled.reshape(1, 1, X_scaled.shape[1])
+# Scaling + reshape
+X_scaled = scaler.transform(X)
+X_scaled = X_scaled.reshape(1, 1, X_scaled.shape[1])
 
-        prediction = model.predict(X_scaled)
-        predicted_price = prediction[0][0]
+# Prediction
+prediction = model.predict(X_scaled)
+predicted_price = prediction[0][0]
 
-        # Error عام
-        X_all = df.drop(['Date', 'Target'], axis=1).values
-        y_all = df['Target'].values
+# حساب Error على كل البيانات (اختياري)
+X_all = df.drop(['Date','Target'], axis=1).values
+y_all = df['Target'].values
+X_all_scaled = scaler.transform(X_all)
+X_all_scaled = X_all_scaled.reshape(X_all_scaled.shape[0],1,X_all_scaled.shape[1])
+y_pred_all = model.predict(X_all_scaled)
+from sklearn.metrics import mean_absolute_error
+mae = mean_absolute_error(y_all, y_pred_all)
 
-        X_all_scaled = scaler.transform(X_all)
-        X_all_scaled = X_all_scaled.reshape(X_all_scaled.shape[0], 1, X_all_scaled.shape[1])
+st.success(f"💰 السعر المتوقع: {predicted_price:.4f}")
+st.info(f"📉 MAE Error: {mae:.4f}")
 
-        y_pred_all = model.predict(X_all_scaled)
-        mae = mean_absolute_error(y_all, y_pred_all)
-
-        st.success(f"💰 السعر المتوقع: {predicted_price:.4f}")
-
-        st.info(f"📉 MAE Error: {mae:.4f}")
 
 
 
